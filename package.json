@@ -1,0 +1,23 @@
+{
+  "name": "aapadasetu",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node ./node_modules/vite/bin/vite.js",
+    "build": "node ./node_modules/typescript/bin/tsc --noEmit && node ./node_modules/vite/bin/vite.js build",
+    "preview": "node ./node_modules/vite/bin/vite.js preview",
+    "typecheck": "node ./node_modules/typescript/bin/tsc --noEmit"
+  },
+  "dependencies": {
+    "lucide-preact": "^1.65.0",
+    "preact": "^10.25.4",
+    "preact-router": "^4.1.2"
+  },
+  "devDependencies": {
+    "@preact/preset-vite": "^2.9.3",
+    "esbuild": "0.25.12",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.7"
+  }
+}
