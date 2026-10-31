@@ -4,6 +4,11 @@ import { resolve } from "path";
 
 export default defineConfig({
   plugins: [preact()],
+  server: {
+    proxy: {
+      "/api": "http://127.0.0.1:8787",
+    },
+  },
   resolve: {
     alias: {
       "@shared": resolve(__dirname, "src/shared"),

@@ -3,6 +3,114 @@
 
 export type AppLanguage = "en" | "pa" | "hi";
 let speechRequest = 0;
+let cloudSpeechAbort: AbortController | null = null;
+let currentPunjabiOnEnd: (() => void) | undefined;
+const recentPunjabiAudio = new Map<string, Blob>();
+
+function publishPunjabiStatus(status: "loading" | "ready" | "error", message: string, audioUrl?: string): void {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("aapdasetu:punjabi-tts", { detail: { status, message, audioUrl } }));
+  }
+}
+
+function translateTtsError(code: string, lang: AppLanguage): string {
+  const messages = {
+    en: {
+      service_not_configured: "Punjabi voice service is not configured. Use the written instructions or contact support.",
+      credentials_unavailable: "Punjabi voice service credentials are unavailable. Please try again later.",
+      quota_exceeded: "Punjabi voice service is busy or out of quota. Please try again later.",
+      permission_denied: "Punjabi voice service is not enabled for this app. Please contact support.",
+      unsupported_voice: "The Punjabi voice is currently unavailable. Please use the written instructions.",
+      provider_unavailable: "Punjabi audio could not be generated right now. Check your connection and try again.",
+      network_error: "Could not reach the Punjabi voice service. Check your internet connection and try again.",
+      invalid_audio: "The Punjabi voice service returned an invalid audio file. Please try again.",
+      request_failed: "Punjabi audio could not be generated. Please try again.",
+    },
+    hi: {
+      service_not_configured: "पंजाबी आवाज़ सेवा सेट नहीं है। लिखे निर्देश पढ़ें या सहायता लें।",
+      credentials_unavailable: "पंजाबी आवाज़ सेवा की पहुँच उपलब्ध नहीं है। बाद में फिर कोशिश करें।",
+      quota_exceeded: "पंजाबी आवाज़ सेवा अभी व्यस्त है या उसकी सीमा पूरी हो गई है। बाद में कोशिश करें।",
+      permission_denied: "इस ऐप के लिए पंजाबी आवाज़ सेवा चालू नहीं है। सहायता लें।",
+      unsupported_voice: "पंजाबी आवाज़ अभी उपलब्ध नहीं है। लिखे निर्देश पढ़ें।",
+      provider_unavailable: "अभी पंजाबी आवाज़ नहीं बन पाई। इंटरनेट जाँचें और फिर कोशिश करें।",
+      network_error: "पंजाबी आवाज़ सेवा तक पहुँच नहीं मिली। इंटरनेट जाँचें और फिर कोशिश करें।",
+      invalid_audio: "पंजाबी आवाज़ सेवा से सही ऑडियो नहीं मिला। फिर कोशिश करें।",
+      request_failed: "पंजाबी आवाज़ नहीं बन पाई। फिर कोशिश करें।",
+    },
+    pa: {
+      service_not_configured: "ਪੰਜਾਬੀ ਆਵਾਜ਼ ਸੇਵਾ ਸੈੱਟ ਨਹੀਂ ਹੈ। ਲਿਖਤੀ ਹਦਾਇਤਾਂ ਪੜ੍ਹੋ ਜਾਂ ਮਦਦ ਲਵੋ।",
+      credentials_unavailable: "ਪੰਜਾਬੀ ਆਵਾਜ਼ ਸੇਵਾ ਦੀ ਪਹੁੰਚ ਨਹੀਂ ਮਿਲੀ। ਬਾਅਦ ਵਿੱਚ ਕੋਸ਼ਿਸ਼ ਕਰੋ।",
+      quota_exceeded: "ਪੰਜਾਬੀ ਆਵਾਜ਼ ਸੇਵਾ ਵਿਅਸਤ ਹੈ ਜਾਂ ਇਸਦੀ ਹੱਦ ਪੂਰੀ ਹੋ ਗਈ ਹੈ। ਬਾਅਦ ਵਿੱਚ ਕੋਸ਼ਿਸ਼ ਕਰੋ।",
+      permission_denied: "ਇਸ ਐਪ ਲਈ ਪੰਜਾਬੀ ਆਵਾਜ਼ ਸੇਵਾ ਚਾਲੂ ਨਹੀਂ। ਮਦਦ ਲਵੋ।",
+      unsupported_voice: "ਪੰਜਾਬੀ ਆਵਾਜ਼ ਇਸ ਵੇਲੇ ਉਪਲਬਧ ਨਹੀਂ। ਲਿਖਤੀ ਹਦਾਇਤਾਂ ਪੜ੍ਹੋ।",
+      provider_unavailable: "ਹੁਣੇ ਪੰਜਾਬੀ ਆਡੀਓ ਨਹੀਂ ਬਣ ਸਕਿਆ। ਇੰਟਰਨੈੱਟ ਜਾਂਚੋ ਅਤੇ ਮੁੜ ਕੋਸ਼ਿਸ਼ ਕਰੋ।",
+      network_error: "ਪੰਜਾਬੀ ਆਵਾਜ਼ ਸੇਵਾ ਨਾਲ ਸੰਪਰਕ ਨਹੀਂ ਹੋ ਸਕਿਆ। ਇੰਟਰਨੈੱਟ ਜਾਂਚੋ ਅਤੇ ਮੁੜ ਕੋਸ਼ਿਸ਼ ਕਰੋ।",
+      invalid_audio: "ਪੰਜਾਬੀ ਆਵਾਜ਼ ਸੇਵਾ ਤੋਂ ਠੀਕ ਆਡੀਓ ਨਹੀਂ ਮਿਲਿਆ। ਮੁੜ ਕੋਸ਼ਿਸ਼ ਕਰੋ।",
+      request_failed: "ਪੰਜਾਬੀ ਆਡੀਓ ਨਹੀਂ ਬਣ ਸਕਿਆ। ਮੁੜ ਕੋਸ਼ਿਸ਼ ਕਰੋ।",
+    },
+  } as const;
+  const key = code in messages.en ? code as keyof typeof messages.en : "request_failed";
+  return messages[lang][key];
+}
+
+async function speakPunjabiWithCloud(text: string, requestId: number, onEnd?: () => void, onError?: (message: string) => void): Promise<void> {
+  cloudSpeechAbort?.abort();
+  cloudSpeechAbort = new AbortController();
+  const normalizedText = text.trim();
+  const cachedAudio = recentPunjabiAudio.get(normalizedText);
+  publishPunjabiStatus("loading", "ਪੰਜਾਬੀ ਆਵਾਜ਼ ਤਿਆਰ ਹੋ ਰਹੀ ਹੈ…");
+
+  try {
+    let audioBlob = cachedAudio;
+    if (!audioBlob) {
+      const response = await fetch("/api/tts/punjabi", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: normalizedText }),
+        signal: cloudSpeechAbort.signal,
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        const code = payload?.error?.code || (response.status === 404 ? "service_not_configured" : "request_failed");
+        throw Object.assign(new Error("Punjabi TTS request failed"), { code });
+      }
+      if (!response.headers.get("content-type")?.toLowerCase().includes("audio/mpeg") ||
+          !response.headers.get("x-aapdasetu-voice")?.startsWith("pa-IN-")) {
+        throw Object.assign(new Error("Punjabi TTS returned an unexpected audio format or voice"), { code: "invalid_audio" });
+      }
+      audioBlob = await response.blob();
+      if (!audioBlob.size) throw Object.assign(new Error("Punjabi TTS returned empty audio"), { code: "invalid_audio" });
+      recentPunjabiAudio.set(normalizedText, audioBlob);
+      if (recentPunjabiAudio.size > 12) recentPunjabiAudio.delete(recentPunjabiAudio.keys().next().value!);
+    }
+    if (requestId !== speechRequest) return;
+
+    const audioUrl = URL.createObjectURL(audioBlob);
+    currentPunjabiOnEnd = onEnd;
+    publishPunjabiStatus("ready", "ਪੰਜਾਬੀ ਆਡੀਓ ਤਿਆਰ ਹੈ। ਸੁਣਨ ਲਈ ਹੇਠਾਂ Play ਦਬਾਓ।", audioUrl);
+  } catch (error) {
+    if (requestId !== speechRequest || (error as Error).name === "AbortError") return;
+    const rawCode = (error as { code?: string }).code || "network_error";
+    const code = rawCode === "configuration_missing" ? "service_not_configured" : rawCode;
+    const message = translateTtsError(code, "pa");
+    publishPunjabiStatus("error", message);
+    if (onError) onError(message);
+    else if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("aapdasetu:voice-error", { detail: message }));
+    onEnd?.();
+  }
+}
+
+export function finishPunjabiPlayback(): void {
+  const onEnd = currentPunjabiOnEnd;
+  currentPunjabiOnEnd = undefined;
+  onEnd?.();
+  publishPunjabiStatus("ready", "ਪੰਜਾਬੀ ਆਡੀਓ ਸੁਣ ਲਿਆ ਗਿਆ।");
+}
+
+function readSpeechVoices(synth: SpeechSynthesis): SpeechSynthesisVoice[] {
+  try { return synth.getVoices(); }
+  catch { return []; }
+}
 
 /**
  * Checks if browser supports SpeechSynthesis (Text-to-Speech)
@@ -28,10 +136,22 @@ export function speakText(
   lang: AppLanguage = "pa",
   onEnd?: () => void,
   onError?: (message: string) => void,
-  onPunjabiFallback?: () => void,
 ): void {
+  if (lang === "pa") {
+    const requestId = ++speechRequest;
+    try { if (typeof window !== "undefined") window.speechSynthesis?.cancel(); } catch { /* cloud speech is independent of system voices */ }
+    void speakPunjabiWithCloud(text, requestId, onEnd, onError);
+    return;
+  }
+
+  const reportError = (message: string) => {
+    if (onError) onError(message);
+    else if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("aapdasetu:voice-error", { detail: message }));
+    }
+  };
   if (!isSpeechSynthesisSupported()) {
-    onError?.(lang === "pa" ? "ਇਸ ਡਿਵਾਈਸ ਵਿੱਚ ਆਵਾਜ਼ ਸਹਾਇਤਾ ਉਪਲਬਧ ਨਹੀਂ।" : lang === "hi" ? "इस डिवाइस में आवाज़ सहायता उपलब्ध नहीं है।" : "Spoken help is unavailable on this device.");
+    reportError(lang === "hi" ? "इस डिवाइस में आवाज़ सहायता उपलब्ध नहीं है।" : "Spoken help is unavailable on this device.");
     if (onEnd) onEnd();
     return;
   }
@@ -42,59 +162,59 @@ export function speakText(
   const requestId = ++speechRequest;
   try { synth.cancel(); } catch { /* still attempt a fresh utterance */ }
 
-  const languageTag = lang === "pa" ? "pa-IN" : lang === "hi" ? "hi-IN" : "en-IN";
+  const languageTag = lang === "hi" ? "hi-IN" : "en-IN";
   const normalize = (value: string) => value.toLowerCase().replace(/_/g, "-").trim();
-  const languageCode = lang === "pa" ? /^(pa|pan)(-|$)/ : lang === "hi" ? /^hi(-|$)/ : /^en(-|$)/;
-  const voices = synth.getVoices();
-  const candidates = voices.filter((voice) => {
-    const code = normalize(voice.lang);
-    const name = normalize(voice.name);
-    return languageCode.test(code) || (lang === "pa" && /punjabi|panjabi/.test(name)) ||
-      (lang === "hi" && /hindi/.test(name)) || (lang === "en" && /english/.test(name));
-  });
-  const voice = candidates.find((candidate) => normalize(candidate.lang) === normalize(languageTag)) ||
-    candidates.find((candidate) => candidate.localService) || candidates[0];
+  const languageCode = lang === "hi" ? /^hi(-|$)/ : /^en(-|$)/;
+  const startSpeech = (voices: SpeechSynthesisVoice[]) => {
+    if (requestId !== speechRequest) return;
+    const candidates = voices.filter((voice) => {
+      const code = normalize(voice.lang);
+      const name = normalize(voice.name);
+      return languageCode.test(code) || (lang === "hi" && /hindi/.test(name)) || (lang === "en" && /english/.test(name));
+    });
+    const voice = candidates.find((candidate) => normalize(candidate.lang) === normalize(languageTag)) ||
+      candidates.find((candidate) => candidate.localService) || candidates[0];
 
-  // Speak directly from the user's click. Waiting for voiceschanged can lose
-  // browser gesture permission, causing the speech request to be dropped.
-  try {
-    const utterance = new SpeechSynthesisUtterance(cleanText);
-    utterance.lang = languageTag;
-    if (voice) utterance.voice = voice;
-    else if (lang === "pa") onPunjabiFallback?.();
-    utterance.rate = 0.88;
-    utterance.pitch = 1;
-    let finished = false;
-    let started = false;
-    let startupTimer = 0;
-    const finish = () => {
-      if (finished) return;
-      finished = true;
-      window.clearTimeout(startupTimer);
-      onEnd?.();
-    };
-    utterance.onstart = () => { started = true; window.clearTimeout(startupTimer); };
-    utterance.onend = finish;
-    utterance.onerror = (event) => {
-      const error = (event as SpeechSynthesisErrorEvent).error;
-      if (requestId === speechRequest && error !== "canceled" && error !== "interrupted") {
-        onError?.(lang === "pa" ? "ਆਵਾਜ਼ ਨਹੀਂ ਚੱਲੀ। ਫੋਨ ਦੀ Punjabi speech voice ਚਾਲੂ ਕਰੋ ਜਾਂ ਲਿਖਤੀ ਹਦਾਇਤਾਂ ਵਰਤੋ।" : lang === "hi" ? "आवाज़ नहीं चली। फ़ोन की Hindi speech voice चालू करें या लिखे निर्देश पढ़ें।" : "Speech could not play. Check device voice settings or use the written instructions.");
-      }
-      finish();
-    };
-    if (synth.paused) synth.resume();
-    synth.speak(utterance);
-    startupTimer = window.setTimeout(() => {
-      if (!started && requestId === speechRequest) {
-        onError?.(lang === "pa" ? "Punjabi ਆਵਾਜ਼ ਸ਼ੁਰੂ ਨਹੀਂ ਹੋਈ। ਲਿਖਤੀ ਹਦਾਇਤਾਂ ਵਰਤੋ ਜਾਂ ਫੋਨ ਦੀ speech voice ਜਾਂਚੋ।" : lang === "hi" ? "आवाज़ शुरू नहीं हुई। लिखे निर्देश पढ़ें या फ़ोन की speech voice जाँचें।" : "Speech did not start. Check device voice settings or use the written instructions.");
+    try {
+      const utterance = new SpeechSynthesisUtterance(cleanText);
+      utterance.lang = languageTag;
+      if (voice) utterance.voice = voice;
+      utterance.rate = 0.88;
+      utterance.pitch = 1;
+      let finished = false;
+      let started = false;
+      let startupTimer = 0;
+      const finish = () => {
+        if (finished) return;
+        finished = true;
+        window.clearTimeout(startupTimer);
+        if (requestId === speechRequest) onEnd?.();
+      };
+      utterance.onstart = () => { started = true; window.clearTimeout(startupTimer); };
+      utterance.onend = finish;
+      utterance.onerror = (event) => {
+        const error = (event as SpeechSynthesisErrorEvent).error;
+        if (requestId === speechRequest && error !== "canceled" && error !== "interrupted") {
+          reportError(lang === "hi" ? "आवाज़ नहीं चली। फ़ोन की Hindi speech voice चालू करें या लिखे निर्देश पढ़ें।" : "Speech could not play. Check device voice settings or use the written instructions.");
+        }
         finish();
-      }
-    }, 4000);
-  } catch (err) {
-    console.warn("Speech synthesis error:", err);
-    onError?.(lang === "pa" ? "ਆਵਾਜ਼ ਸਹਾਇਤਾ ਸ਼ੁਰੂ ਨਹੀਂ ਹੋ ਸਕੀ।" : lang === "hi" ? "आवाज़ सहायता शुरू नहीं हो सकी।" : "Spoken help could not start.");
-    onEnd?.();
-  }
+      };
+      if (synth.paused) synth.resume();
+      synth.speak(utterance);
+      startupTimer = window.setTimeout(() => {
+        if (!started && requestId === speechRequest) {
+          reportError(lang === "hi" ? "आवाज़ शुरू नहीं हुई। लिखे निर्देश पढ़ें या फ़ोन की speech voice जाँचें।" : "Speech did not start. Check device voice settings or use the written instructions.");
+          finish();
+        }
+      }, 4000);
+    } catch (err) {
+      console.warn("Speech synthesis error:", err);
+      reportError(lang === "hi" ? "आवाज़ सहायता शुरू नहीं हो सकी।" : "Spoken help could not start.");
+      onEnd?.();
+    }
+  };
+
+  startSpeech(readSpeechVoices(synth));
 }
 
 /**
@@ -102,6 +222,16 @@ export function speakText(
  */
 export function stopSpeaking(): void {
   speechRequest++;
+  const wasPunjabiActive = Boolean(cloudSpeechAbort || currentPunjabiOnEnd);
+  cloudSpeechAbort?.abort();
+  cloudSpeechAbort = null;
+  currentPunjabiOnEnd = undefined;
+  if (typeof document !== "undefined") {
+    const player = document.getElementById("aapdasetu-punjabi-player") as HTMLAudioElement | null;
+    player?.pause();
+    if (player) player.currentTime = 0;
+  }
+  if (wasPunjabiActive) publishPunjabiStatus("ready", "ਪੰਜਾਬੀ ਆਡੀਓ ਰੋਕਿਆ ਗਿਆ।");
   if (isSpeechSynthesisSupported()) {
     try {
       window.speechSynthesis.cancel();

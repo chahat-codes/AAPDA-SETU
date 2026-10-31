@@ -151,6 +151,11 @@
 .legacy-app .farmer-topbar { min-height: 60px; padding: 8px 16px; display: flex; justify-content: space-between; background: #03120b; border-bottom: 1px solid rgba(52,211,153,.2); }
 .legacy-app .app-main { width: min(100%, 1240px); flex: 1; margin: 0 auto; padding: 18px 16px 100px; }
 .farmer-notice { position: fixed; z-index: 1000; left: 50%; bottom: calc(94px + env(safe-area-inset-bottom)); width: max-content; max-width: calc(100vw - 28px); transform: translateX(-50%); padding: 12px 16px; border-radius: 14px; color: #fff; background: #254f38; box-shadow: 0 8px 24px #1b392c33; font-weight: 700; text-align: center; }
+.farmer-voice-player { position: fixed; z-index: 999; left: 50%; bottom: calc(158px + env(safe-area-inset-bottom)); width: min(520px, calc(100vw - 24px)); transform: translateX(-50%); padding: 12px 14px; border: 1px solid #d6e4d0; border-radius: 16px; color: #214a34; background: rgba(255,254,250,.98); box-shadow: 0 10px 30px rgba(22,60,37,.18); }
+.farmer-voice-player-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.farmer-voice-player-heading strong { min-width: 0; line-height: 1.4; }
+.farmer-voice-player-heading button { flex: 0 0 36px; min-width: 36px; min-height: 36px; border: 1px solid #dce7d9; border-radius: 50%; color: #24563a; background: #fff; font-size: 1.25rem; cursor: pointer; }
+.farmer-voice-player audio { display: block; width: 100%; min-height: 40px; }
 .consumer-app :focus-visible, .legacy-app :focus-visible { outline: 3px solid #80ac63; outline-offset: 3px; }
 .consumer-app button, .legacy-app button, .consumer-app input, .consumer-app select { touch-action: manipulation; }
 .entry-screen { min-height: 100vh; min-height: 100svh; width: 100%; padding: max(24px, env(safe-area-inset-top)) 18px max(24px, env(safe-area-inset-bottom)); display: grid; place-items: center; color: #214631; background: radial-gradient(ellipse at 50% 0%, #eaf3db 0%, #f7f7ef 58%, #edf2e7 100%); }
@@ -237,10 +242,11 @@
 .home-hero-copy h1 { max-width: 600px; margin: 12px 0 7px; color: #174b33; font-size: clamp(2rem, 4vw, 3rem); line-height: 1.08; letter-spacing: -.04em; overflow-wrap: anywhere; }
 .home-hero-copy p { max-width: 480px; margin: 0 0 14px; color: #53665b; font-size: clamp(.98rem, 1.35vw, 1.1rem); line-height: 1.45; }
 .home-hero-copy .voice-help-button { min-height: 42px; padding-inline: 13px; }
-.farmer-choice-list { gap: 14px; }
+.farmer-choice-list { grid-template-columns: repeat(4,minmax(0,1fr)); gap: 14px; }
 .farmer-choice-card { min-height: 132px; padding: 16px 18px; display: grid; grid-template-columns: 64px minmax(0,1fr) 34px; align-items: center; gap: 14px; border-radius: 19px; background: linear-gradient(150deg,#fffefa,#f5f8ef); }
 .farmer-choice-art { width: 64px; height: 64px; border-radius: 18px; }
 .farmer-choice-copy { gap: 5px; padding: 0; }
+.journey-stage-label { color: #64814f !important; font-size: .65rem !important; font-weight: 850; letter-spacing: .09em; }
 .farmer-choice-copy strong { font-size: clamp(1rem,1.35vw,1.23rem); }
 .farmer-choice-copy small { font-size: .86rem; }
 .farmer-choice-action { width: 36px; height: 36px; min-height: 36px; justify-content: center; overflow: hidden; color: #236a49; background: #fff; border-radius: 50%; box-shadow: 0 3px 9px rgba(31,75,48,.1); font-size: 0; }
@@ -266,11 +272,15 @@
 .consumer-app .home-hero-copy p { margin: 0 0 14px; }
 .consumer-app .home-hero-copy { padding-block: clamp(24px,3vw,34px); }
 .consumer-app .home-hero-copy h1 { font-size: clamp(2rem,3.4vw,2.65rem); }
+@media (max-width: 1000px) {
+  .farmer-choice-list { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
 @media (min-width: 1100px) {
   .home-tool-grid { grid-template-columns: repeat(6,minmax(0,1fr)); }
   .home-tool-card { padding: 10px; }
 }
 @media (max-width: 760px) {
+  .farmer-voice-player { bottom: calc(152px + env(safe-area-inset-bottom)); }
   .consumer-app:has(.farmer-home) .app-main { padding: 14px 16px calc(28px + env(safe-area-inset-bottom)); }
   .farmer-home { gap: 14px; }
   .home-hero { min-height: 275px; align-items: flex-start; border-radius: 22px; }

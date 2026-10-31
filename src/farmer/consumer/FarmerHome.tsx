@@ -1,4 +1,4 @@
-import { Camera, Droplets, Leaf, ChevronRight, Volume2, HandHelping, Clock3, BadgeCheck, LockKeyhole, ScanLine, ClipboardList, Sprout, CircleHelp } from 'lucide-preact';
+import { Camera, CloudRain, Leaf, ChevronRight, Volume2, HandHelping, Clock3, BadgeCheck, LockKeyhole, ScanLine, ClipboardList, Sprout, CircleHelp, HeartPulse } from 'lucide-preact';
 import { useEffect, useState } from 'preact/hooks';
 import type { AppLanguage } from '@shared/voice';
 import { ROUTES } from '@shared/constants';
@@ -7,36 +7,42 @@ import { storageService } from '../services/storageService';
 interface FarmerHomeProps {
   language: AppLanguage;
   onOpen: (path: string) => void;
-  onSpeak: (text: string) => void;
+  onSpeak: (text: string, language?: AppLanguage) => void;
 }
 
 const copy = {
   en: {
-    greeting: 'How can we help your farm today?', help: 'Report damage, protect your crops, and learn simple ways to care for your farm.',
-    report: 'Report crop damage', reportHint: 'Save photos and details about damage.', reportAction: 'Start a report',
-    crop: 'Save my crop', cropHint: 'Find simple next steps for a crop problem.', cropAction: 'Find crop help',
-    water: 'Save water & soil', waterHint: 'Explore practical care for water and soil.', waterAction: 'See simple guides',
-    listen: 'Listen to these choices', spoken: 'Choose: report crop damage, save my crop, or save water and soil.',
+    greeting: 'From crop loss to climate resilience', help: 'Prepare before risk. Document damage. Find recovery guidance. Build a more resilient farm.',
+    prepare: 'Prepare for weather', prepareHint: 'Read prevention tips. Live weather alerts are not connected.', prepareAction: 'See precautions',
+    report: 'Report crop damage', reportHint: 'Save crop, damage, date and photo details on this phone.', reportAction: 'Start a report',
+    recover: 'Get recovery guidance', recoverHint: 'Read general crop-problem steps. Ask a local expert about treatment.', recoverAction: 'See crop guidance',
+    rebuild: 'Rebuild with better practices', rebuildHint: 'Record water, soil and crop-residue activities. These are your notes.', rebuildAction: 'Track practices',
+    prepareStage: 'PREPARE', reportStage: 'REPORT', recoverStage: 'RECOVER', rebuildStage: 'REBUILD',
+    listen: 'Listen to these choices', spoken: 'Prepare for weather, report crop damage, read recovery guidance, or record farm practices.',
     volunteer: 'Seek volunteer help', volunteerHint: 'A field helper can guide you through the app.',
     timer: 'Report timer', elapsedReport: 'Time since your latest saved report', elapsedSession: 'Time since this visit started', localTimer: 'Local timer · not a government deadline',
     tools: 'More help and tools', officer: 'Officer review', officerHint: 'Local demo · no official review', seal: 'Seal evidence files', sealHint: 'Create an integrity seal on this device', verify: 'Check a report', verifyHint: 'Check a saved photo or its seal', reports: 'My Reports', reportsHint: 'View saved reports', farm: 'My Farm', farmHint: 'Track your farm', support: 'Help & Support', supportHint: 'Get help using the app', badge: 'YOUR FARM, OUR PRIORITY',
   },
   pa: {
-    greeting: 'ਅੱਜ ਤੁਹਾਡੇ ਖੇਤ ਲਈ ਕੀ ਮਦਦ ਚਾਹੀਦੀ ਹੈ?', help: 'ਨੁਕਸਾਨ ਦੀ ਰਿਪੋਰਟ ਕਰੋ, ਫਸਲ ਬਚਾਓ ਅਤੇ ਖੇਤ ਦੀ ਸੰਭਾਲ ਲਈ ਸੌਖੇ ਤਰੀਕੇ ਜਾਣੋ।',
-    report: 'ਫਸਲ ਦੇ ਨੁਕਸਾਨ ਦੀ ਰਿਪੋਰਟ', reportHint: 'ਨੁਕਸਾਨ ਦੀਆਂ ਫੋਟੋਆਂ ਅਤੇ ਜਾਣਕਾਰੀ ਸੰਭਾਲੋ।', reportAction: 'ਰਿਪੋਰਟ ਸ਼ੁਰੂ ਕਰੋ',
-    crop: 'ਮੇਰੀ ਫਸਲ ਬਚਾਓ', cropHint: 'ਫਸਲ ਦੀ ਸਮੱਸਿਆ ਲਈ ਸੌਖੇ ਅਗਲੇ ਕਦਮ ਵੇਖੋ।', cropAction: 'ਫਸਲ ਲਈ ਮਦਦ',
-    water: 'ਪਾਣੀ ਅਤੇ ਮਿੱਟੀ ਬਚਾਓ', waterHint: 'ਪਾਣੀ ਅਤੇ ਮਿੱਟੀ ਦੀ ਸੰਭਾਲ ਦੇ ਸੌਖੇ ਤਰੀਕੇ।', waterAction: 'ਸੌਖੇ ਸੁਝਾਅ ਵੇਖੋ',
-    listen: 'ਇਹ ਚੋਣਾਂ ਸੁਣੋ', spoken: 'ਚੁਣੋ: ਫਸਲ ਦੇ ਨੁਕਸਾਨ ਦੀ ਰਿਪੋਰਟ, ਮੇਰੀ ਫਸਲ ਬਚਾਓ, ਜਾਂ ਪਾਣੀ ਅਤੇ ਮਿੱਟੀ ਬਚਾਓ।',
+    greeting: 'ਫਸਲ ਦੇ ਨੁਕਸਾਨ ਤੋਂ ਜਲਵਾਯੂ ਲਈ ਤਿਆਰੀ ਵੱਲ', help: 'ਖਤਰੇ ਤੋਂ ਪਹਿਲਾਂ ਤਿਆਰ ਹੋਵੋ। ਨੁਕਸਾਨ ਦਰਜ ਕਰੋ। ਅਗਲੇ ਕਦਮ ਜਾਣੋ ਅਤੇ ਖੇਤ ਨੂੰ ਮਜ਼ਬੂਤ ਬਣਾਓ।',
+    prepare: 'ਮੌਸਮ ਲਈ ਤਿਆਰੀ', prepareHint: 'ਬਚਾਅ ਦੇ ਸੁਝਾਅ ਵੇਖੋ। ਲਾਈਵ ਮੌਸਮ ਚੇਤਾਵਨੀ ਉਪਲਬਧ ਨਹੀਂ।', prepareAction: 'ਬਚਾਅ ਦੇ ਕਦਮ',
+    report: 'ਫਸਲ ਦੇ ਨੁਕਸਾਨ ਦੀ ਰਿਪੋਰਟ', reportHint: 'ਫਸਲ, ਨੁਕਸਾਨ, ਤਾਰੀਖ ਅਤੇ ਫੋਟੋ ਇਸ ਫੋਨ ਵਿੱਚ ਸੰਭਾਲੋ।', reportAction: 'ਰਿਪੋਰਟ ਸ਼ੁਰੂ ਕਰੋ',
+    recover: 'ਮੁੜ ਸੰਭਾਲ ਲਈ ਜਾਣਕਾਰੀ', recoverHint: 'ਫਸਲ ਦੀ ਸਮੱਸਿਆ ਲਈ ਆਮ ਕਦਮ ਵੇਖੋ। ਇਲਾਜ ਲਈ ਸਥਾਨਕ ਮਾਹਰ ਤੋਂ ਪੁੱਛੋ।', recoverAction: 'ਫਸਲ ਬਾਰੇ ਜਾਣਕਾਰੀ',
+    rebuild: 'ਚੰਗੇ ਤਰੀਕਿਆਂ ਨਾਲ ਮੁੜ ਬਣਾਓ', rebuildHint: 'ਪਾਣੀ, ਮਿੱਟੀ ਅਤੇ ਰਹਿੰਦ-ਖੂੰਹਦ ਦੇ ਕੰਮ ਦਰਜ ਕਰੋ। ਇਹ ਤੁਹਾਡੇ ਨੋਟ ਹਨ।', rebuildAction: 'ਖੇਤੀ ਦੇ ਕੰਮ ਦਰਜ ਕਰੋ',
+    prepareStage: 'ਤਿਆਰੀ', reportStage: 'ਰਿਪੋਰਟ', recoverStage: 'ਸੰਭਾਲ', rebuildStage: 'ਮੁੜ ਬਣਾਓ',
+    listen: 'ਇਹ ਚੋਣਾਂ ਸੁਣੋ', spoken: 'ਮੌਸਮ ਲਈ ਤਿਆਰ ਹੋਵੋ, ਫਸਲ ਦਾ ਨੁਕਸਾਨ ਦਰਜ ਕਰੋ, ਸੰਭਾਲ ਬਾਰੇ ਜਾਣੋ ਜਾਂ ਖੇਤੀ ਦੇ ਕੰਮ ਲਿਖੋ।',
     volunteer: 'ਵਲੰਟੀਅਰ ਤੋਂ ਮਦਦ ਲਵੋ', volunteerHint: 'ਖੇਤ ਸਹਾਇਕ ਐਪ ਵਰਤਣ ਵਿੱਚ ਤੁਹਾਡੀ ਮਦਦ ਕਰ ਸਕਦਾ ਹੈ।',
     timer: 'ਰਿਪੋਰਟ ਟਾਈਮਰ', elapsedReport: 'ਤੁਹਾਡੀ ਨਵੀਂ ਸੰਭਾਲੀ ਰਿਪੋਰਟ ਤੋਂ ਬੀਤਿਆ ਸਮਾਂ', elapsedSession: 'ਇਸ ਵਾਰ ਐਪ ਖੋਲ੍ਹਣ ਤੋਂ ਬੀਤਿਆ ਸਮਾਂ', localTimer: 'ਫੋਨ ਦਾ ਟਾਈਮਰ · ਸਰਕਾਰੀ ਮਿਆਦ ਨਹੀਂ',
     tools: 'ਹੋਰ ਮਦਦ ਅਤੇ ਸਹੂਲਤਾਂ', officer: 'ਅਧਿਕਾਰੀ ਸਮੀਖਿਆ', officerHint: 'ਸਥਾਨਕ ਡੈਮੋ · ਸਰਕਾਰੀ ਜਾਂਚ ਨਹੀਂ', seal: 'ਸਬੂਤ ਫਾਈਲਾਂ ਸੀਲ ਕਰੋ', sealHint: 'ਇਸ ਫੋਨ ਉੱਤੇ ਇੰਟੀਗ੍ਰਿਟੀ ਸੀਲ ਬਣਾਓ', verify: 'ਰਿਪੋਰਟ ਜਾਂਚੋ', verifyHint: 'ਸੰਭਾਲੀ ਫੋਟੋ ਜਾਂ ਸੀਲ ਜਾਂਚੋ', reports: 'ਮੇਰੀਆਂ ਰਿਪੋਰਟਾਂ', reportsHint: 'ਸੰਭਾਲੀਆਂ ਰਿਪੋਰਟਾਂ ਵੇਖੋ', farm: 'ਮੇਰਾ ਖੇਤ', farmHint: 'ਆਪਣੇ ਖੇਤ ਦੀ ਜਾਣਕਾਰੀ', support: 'ਮਦਦ ਅਤੇ ਸਹਾਇਤਾ', supportHint: 'ਐਪ ਵਰਤਣ ਲਈ ਮਦਦ ਲਵੋ', badge: 'ਤੁਹਾਡਾ ਖੇਤ, ਸਾਡੀ ਪਹਿਲ',
   },
   hi: {
-    greeting: 'आज आपके खेत के लिए क्या मदद चाहिए?', help: 'नुकसान की रिपोर्ट करें, फसल बचाएँ और खेत की देखभाल के आसान तरीके जानें।',
-    report: 'फसल नुकसान की रिपोर्ट', reportHint: 'नुकसान की तस्वीरें और जानकारी सहेजें।', reportAction: 'रिपोर्ट शुरू करें',
-    crop: 'मेरी फसल बचाएँ', cropHint: 'फसल की समस्या के आसान अगले कदम देखें।', cropAction: 'फसल की मदद देखें',
-    water: 'पानी और मिट्टी बचाएँ', waterHint: 'पानी और मिट्टी की देखभाल के आसान तरीके।', waterAction: 'आसान सुझाव देखें',
-    listen: 'ये विकल्प सुनें', spoken: 'चुनें: फसल नुकसान की रिपोर्ट, मेरी फसल बचाएँ, या पानी और मिट्टी बचाएँ।',
+    greeting: 'फसल नुकसान से जलवायु तैयारी की ओर', help: 'जोखिम से पहले तैयारी करें। नुकसान दर्ज करें। आगे की सलाह देखें और खेत को मजबूत बनाएँ।',
+    prepare: 'मौसम के लिए तैयारी', prepareHint: 'बचाव के सुझाव देखें। लाइव मौसम चेतावनी जुड़ी नहीं है।', prepareAction: 'बचाव के कदम',
+    report: 'फसल नुकसान की रिपोर्ट', reportHint: 'फसल, नुकसान, तारीख और फोटो इसी फ़ोन में सहेजें।', reportAction: 'रिपोर्ट शुरू करें',
+    recover: 'फसल सँभालने की सलाह', recoverHint: 'फसल की समस्या के सामान्य कदम देखें। उपचार के लिए स्थानीय विशेषज्ञ से पूछें।', recoverAction: 'फसल की सलाह देखें',
+    rebuild: 'बेहतर तरीकों से फिर बनाएँ', rebuildHint: 'पानी, मिट्टी और फसल अवशेष के काम दर्ज करें। ये आपके नोट हैं।', rebuildAction: 'खेती के काम दर्ज करें',
+    prepareStage: 'तैयारी', reportStage: 'रिपोर्ट', recoverStage: 'सँभाल', rebuildStage: 'फिर बनाएँ',
+    listen: 'ये विकल्प सुनें', spoken: 'मौसम की तैयारी करें, फसल नुकसान दर्ज करें, आगे की सलाह देखें, या खेती के काम लिखें।',
     volunteer: 'स्वयंसेवक से मदद लें', volunteerHint: 'मैदानी सहायक ऐप चलाने में मदद कर सकता है।',
     timer: 'रिपोर्ट टाइमर', elapsedReport: 'आपकी सबसे नई सहेजी रिपोर्ट से बीता समय', elapsedSession: 'इस बार ऐप खोलने से बीता समय', localTimer: 'फ़ोन का टाइमर · सरकारी समय-सीमा नहीं',
     tools: 'और मदद व साधन', officer: 'अधिकारी समीक्षा', officerHint: 'स्थानीय डेमो · सरकारी जाँच नहीं', seal: 'सबूत फ़ाइल सील करें', sealHint: 'इस फ़ोन पर इंटीग्रिटी सील बनाएँ', verify: 'रिपोर्ट जाँचें', verifyHint: 'सहेजी तस्वीर या सील जाँचें', reports: 'मेरी रिपोर्ट', reportsHint: 'सहेजी रिपोर्ट देखें', farm: 'मेरा खेत', farmHint: 'अपने खेत की जानकारी', support: 'मदद और सहायता', supportHint: 'ऐप इस्तेमाल करने में मदद लें', badge: 'आपका खेत, हमारी प्राथमिकता',
@@ -61,9 +67,10 @@ export default function FarmerHome({ language, onOpen, onSpeak }: FarmerHomeProp
   const timer = [Math.floor(elapsed / 3600), Math.floor((elapsed % 3600) / 60), elapsed % 60]
     .map((part) => String(part).padStart(2, '0')).join(':');
   const choices = [
-    { className: 'choice-report', icon: Camera, title: t.report, hint: t.reportHint, action: t.reportAction, path: ROUTES.farmer },
-    { className: 'choice-crop', icon: Leaf, title: t.crop, hint: t.cropHint, action: t.cropAction, path: ROUTES.cropHelp },
-    { className: 'choice-water', icon: Droplets, title: t.water, hint: t.waterHint, action: t.waterAction, path: ROUTES.waterSoil },
+    { className: 'choice-prepare', stage: t.prepareStage, icon: CloudRain, title: t.prepare, hint: t.prepareHint, action: t.prepareAction, path: ROUTES.waterSoil },
+    { className: 'choice-report', stage: t.reportStage, icon: Camera, title: t.report, hint: t.reportHint, action: t.reportAction, path: ROUTES.farmer },
+    { className: 'choice-recover', stage: t.recoverStage, icon: HeartPulse, title: t.recover, hint: t.recoverHint, action: t.recoverAction, path: ROUTES.cropHelp },
+    { className: 'choice-rebuild', stage: t.rebuildStage, icon: Sprout, title: t.rebuild, hint: t.rebuildHint, action: t.rebuildAction, path: ROUTES.farm },
   ];
 
   return (
@@ -76,14 +83,15 @@ export default function FarmerHome({ language, onOpen, onSpeak }: FarmerHomeProp
           <h1 id="farmer-home-title">{t.greeting}</h1>
           <p>{t.help}</p>
           <button class="voice-help-button" onClick={() => onSpeak(t.spoken)}><Volume2 size={19} aria-hidden="true" />{t.listen}</button>
+          <button class="voice-help-button" type="button" onClick={() => onSpeak('ਸਤ ਸ੍ਰੀ ਅਕਾਲ। ਇਹ ਪੰਜਾਬੀ ਆਵਾਜ਼ ਦੀ ਜਾਂਚ ਹੈ।', 'pa')}>ਪੰਜਾਬੀ ਆਵਾਜ਼ ਜਾਂਚੋ</button>
         </div>
       </header>
 
       <div class="farmer-choice-list" aria-label={language === 'pa' ? 'ਮੁੱਖ ਚੋਣਾਂ' : language === 'hi' ? 'मुख्य विकल्प' : 'Main choices'}>
-        {choices.map(({ className, icon: Icon, title, hint, action, path }) => (
+        {choices.map(({ className, stage, icon: Icon, title, hint, action, path }) => (
           <button class={`farmer-choice-card ${className}`} onClick={() => onOpen(path)} key={path}>
             <span class="farmer-choice-art" aria-hidden="true"><Icon size={34} strokeWidth={1.9} /></span>
-            <span class="farmer-choice-copy"><strong>{title}</strong><small>{hint}</small></span>
+            <span class="farmer-choice-copy"><small class="journey-stage-label">{stage}</small><strong>{title}</strong><small>{hint}</small></span>
             <span class="farmer-choice-action">{action}<ChevronRight size={18} aria-hidden="true" /></span>
           </button>
         ))}

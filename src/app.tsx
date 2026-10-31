@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import Router, { Route, route } from 'preact-router';
 import { ClipboardList, House, Sprout, UserRound, Volume2 } from 'lucide-preact';
 import { ROUTES } from '@shared/constants';
-import { isSpeechSynthesisSupported, speakText, stopSpeaking, type AppLanguage } from '@shared/voice';
+import { finishPunjabiPlayback, isSpeechSynthesisSupported, speakText, stopSpeaking, type AppLanguage } from '@shared/voice';
 import { playClick } from '@shared/sound';
 import FarmerPage from '@farmer/FarmerPage';
 import FarmerHome from '@farmer/consumer/FarmerHome';
@@ -45,6 +45,10 @@ export default function App() {
   });
   const [speaking, setSpeaking] = useState(false);
   const [notice, setNotice] = useState('');
+  const [voiceStatus, setVoiceStatus] = useState('');
+  const [voiceAudioUrl, setVoiceAudioUrl] = useState('');
+  const voiceAudioRef = useRef<HTMLAudioElement>(null);
+  const lastVoiceAudioUrl = useRef('');
   const path = currentPath.split('?')[0];
   const isWorkflow = path === ROUTES.farmer;
   const isConsumerRoute = [ROUTES.home, ROUTES.reports, ROUTES.farm, ROUTES.profile, ROUTES.cropHelp, ROUTES.waterSoil].includes(path as never);
@@ -66,6 +70,48 @@ export default function App() {
     return () => window.clearTimeout(timer);
   }, [notice]);
 
+  useEffect(() => {
+    const handleVoiceError = (event: Event) => setNotice((event as CustomEvent<string>).detail);
+    window.addEventListener('aapdasetu:voice-error', handleVoiceError);
+    return () => window.removeEventListener('aapdasetu:voice-error', handleVoiceError);
+  }, []);
+
+  useEffect(() => {
+    const handlePunjabiTts = (event: Event) => {
+      const detail = (event as CustomEvent<{ status: 'loading' | 'ready' | 'error'; message: string; audioUrl?: string }>).detail;
+      setVoiceStatus(detail.message);
+      if (detail.status === 'loading') {
+        voiceAudioRef.current?.pause();
+        if (lastVoiceAudioUrl.current) URL.revokeObjectURL(lastVoiceAudioUrl.current);
+        lastVoiceAudioUrl.current = '';
+        setVoiceAudioUrl('');
+      } else if (detail.audioUrl) {
+        lastVoiceAudioUrl.current = detail.audioUrl;
+        setVoiceAudioUrl(detail.audioUrl);
+        setSpeaking(true);
+      } else if (detail.status === 'error') {
+        setSpeaking(false);
+      }
+    };
+    window.addEventListener('aapdasetu:punjabi-tts', handlePunjabiTts);
+    return () => window.removeEventListener('aapdasetu:punjabi-tts', handlePunjabiTts);
+  }, []);
+
+  useEffect(() => {
+    const player = voiceAudioRef.current;
+    if (!player || !voiceAudioUrl) return;
+    player.load();
+    void player.play().catch(() => {
+      setSpeaking(false);
+      setVoiceStatus('ਪੰਜਾਬੀ ਆਡੀਓ ਤਿਆਰ ਹੈ। ਸੁਣਨ ਲਈ Play ਦਬਾਓ।');
+    });
+  }, [voiceAudioUrl]);
+
+  useEffect(() => () => {
+    voiceAudioRef.current?.pause();
+    if (lastVoiceAudioUrl.current) URL.revokeObjectURL(lastVoiceAudioUrl.current);
+  }, []);
+
   const go = (to: string) => {
     playClick();
     route(to);
@@ -81,9 +127,9 @@ export default function App() {
     setCurrentPath(event.url.split('?')[0]);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
-  const speak = (text: string) => {
-    if (!isSpeechSynthesisSupported()) {
-      setNotice(language === 'pa' ? 'ਇਸ ਫੋਨ ਵਿੱਚ ਆਵਾਜ਼ ਸਹਾਇਤਾ ਉਪਲਬਧ ਨਹੀਂ।' : language === 'hi' ? 'इस फ़ोन में आवाज़ सहायता उपलब्ध नहीं है।' : 'Spoken guidance is not supported on this device.');
+  const speak = (text: string, requestedLanguage: AppLanguage = language) => {
+    if (requestedLanguage !== 'pa' && !isSpeechSynthesisSupported()) {
+      setNotice(requestedLanguage === 'hi' ? 'इस फ़ोन में आवाज़ सहायता उपलब्ध नहीं है।' : 'Spoken guidance is not supported on this device.');
       return;
     }
     if (speaking) {
@@ -94,10 +140,9 @@ export default function App() {
     setSpeaking(true);
     speakText(
       text,
-      language,
+      requestedLanguage,
       () => setSpeaking(false),
       (message) => { setSpeaking(false); setNotice(message); },
-      language === 'pa' ? () => setNotice('Punjabi voice ਨਹੀਂ ਮਿਲੀ। ਐਪ ਹੁਣ ਫੋਨ ਦੀ ਮੂਲ ਆਵਾਜ਼ ਨਾਲ ਕੋਸ਼ਿਸ਼ ਕਰੇਗੀ। Punjabi speech voice ਲਈ ਫੋਨ ਦੀ voice settings ਵੇਖੋ; ਆਵਾਜ਼ ਨਾ ਚੱਲੇ ਤਾਂ ਲਿਖਤੀ ਹਦਾਇਤਾਂ ਵਰਤੋ।') : undefined,
     );
   };
 
@@ -171,6 +216,22 @@ export default function App() {
             return <button key={tabPath} class={active ? 'bottom-tab bottom-tab-active' : 'bottom-tab'} aria-current={active ? 'page' : undefined} onClick={() => go(tabPath)}><Icon size={21} strokeWidth={active ? 2.4 : 1.8} /><span>{label[language]}</span></button>;
           })}
         </nav>
+      )}
+      {voiceStatus && (
+        <section class="farmer-voice-player" aria-label="Punjabi audio player" aria-live="polite">
+          <div class="farmer-voice-player-heading">
+            <strong>{voiceStatus}</strong>
+            <button type="button" aria-label="Close Punjabi audio player" onClick={() => {
+              stopSpeaking();
+              setSpeaking(false);
+              setVoiceStatus('');
+              setVoiceAudioUrl('');
+              if (lastVoiceAudioUrl.current) URL.revokeObjectURL(lastVoiceAudioUrl.current);
+              lastVoiceAudioUrl.current = '';
+            }}>×</button>
+          </div>
+          {voiceAudioUrl && <audio id="aapdasetu-punjabi-player" ref={voiceAudioRef} controls src={voiceAudioUrl} onPlay={() => setSpeaking(true)} onPause={() => setSpeaking(false)} onEnded={() => { finishPunjabiPlayback(); setSpeaking(false); }} onError={() => { setSpeaking(false); setVoiceStatus('ਪੰਜਾਬੀ ਆਡੀਓ ਚੱਲ ਨਹੀਂ ਸਕਿਆ। ਮੁੜ ਕੋਸ਼ਿਸ਼ ਕਰੋ ਜਾਂ ਲਿਖਤੀ ਹਦਾਇਤਾਂ ਪੜ੍ਹੋ।'); }} />}
+        </section>
       )}
       {notice && <div class="farmer-notice" role="status">{notice}</div>}
     </div>
